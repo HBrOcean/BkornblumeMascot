@@ -1,0 +1,74 @@
+柏林以东桌宠 BkornblumeMascot —— 使用说明
+==========================================
+
+【关于 exe】
+这个包里是源码，没有 exe（打包环境没有 .NET 10 SDK）。
+生成 exe 两种方式：
+  A. 推到 GitHub，Actions 的 build.yml 会在 windows-latest 上构建；
+     打 v* 标签还会自动发 Release，产物是免安装的 BkornblumeMascot-win-x64.zip
+  B. 本地装了 .NET 10 SDK 时，在本目录执行：
+     dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true --self-contained true
+
+exe 必须与 Assets 文件夹放在同一目录，不要只拷 exe。
+
+启动后
+--------
+1. 先播一遍出场动画（born），然后进入待机（idle）。
+2. 默认出现在屏幕右下角，缩放 17%，1080p 下约 55 像素高。
+3. 托盘图标 / 桌宠右键都能打开设置。
+
+鼠标操作
+--------
+- 拖动：按住左键拖走，松手记住位置；允许拖到屏幕外，接触边缘不回弹
+- 单击：按「点击动作」配置播放（默认随机挑一个），播完回待机
+- 滚轮：在角色身上滚动滚轮调大小（5%~200%，自动保存）
+- 右键：设置 / 播放动作 / 重置位置 / 隐藏 / 退出
+- 找不到角色时，用托盘或右键的「重置位置」拉回主屏右下角
+
+快捷键（Ctrl + 键，设置里可改）
+--------
+Ctrl+Y  打开设置      Ctrl+N  关闭设置
+Ctrl+1  skill1 技能一   Ctrl+2  skill2 技能二
+Ctrl+D  die 倒下        Ctrl+Q  unique 至终仪式
+Ctrl+B  born 出场       Ctrl+G  giddy 开怀
+Ctrl+H  hit 受击        Ctrl+I  idle 待机
+Ctrl+P  posture 姿态    Ctrl+S  sleep 睡眠
+Ctrl+F  freeze 定格     Ctrl+V  victory 胜利
+
+> skill2 / unique 各有 2~3 个变体，每次触发随机挑一个。
+> 定时随机动作（默认每 20 秒）与「点击动作」配置完全独立，配了固定点击动作也不会影响它。
+
+三套皮肤
+--------
+302001  柏林以东 · 初始（耳机 + 深色风衣）
+302002  柏林以东 · 雾蓝（深蓝围巾）
+302003  柏林以东 · 衣着（眼镜 + 蓝色蝴蝶结）
+
+设置 → 皮肤 是卡片网格，点一下立即切换；托盘右键、桌宠右键也都能换。
+资源不全的皮肤会置灰、不可选。
+
+换成自己的模型
+--------
+在 Assets\characters\ 下新建子目录（目录名随意），放入同名的 .atlas / .skel / 图集；
+想自定义显示名就放一个 display.txt（UTF-8，第一行是名字）。
+然后 设置 → 皮肤 → 刷新列表。
+
+高级开关（设置 → 桌宠）
+--------
+- 窗口层级：最上层 / 最下层 / 自由
+- 窗口随动作自适应大小（关掉则固定按静态包围盒）
+- 定时随机动作：默认 20 秒，5~180 秒可调
+- 鼠标穿透：点击落到桌面（开了点不到角色，用托盘或设置面板恢复）
+- 上下浮动、水平翻转、玻璃模式
+- 在任务栏显示图标、禁止拖动、开机自启
+
+配置文件与日志
+--------
+%AppData%\BkornblumeMascot\config.json   所有设置
+%AppData%\BkornblumeMascot\log.txt       运行日志
+%AppData%\BkornblumeMascot\thumbs\       皮肤预览图缓存
+
+素材与版权
+--------
+模型素材来自 UTTU（uttu.merui.net），版权归《重返未来：1999》权利方所有，仅供个人非商业使用。
+代码 MIT。

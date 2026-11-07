@@ -9,7 +9,7 @@ namespace BkornblumeMascot.Rendering;
 /// 把 Spine 骨架绘制到 SkiaSharp 画布。spine-csharp 没有官方 Skia 后端，
 /// 这里按其数据结构（RegionAttachment / MeshAttachment / ClippingAttachment）自绘三角网格。
 /// </summary>
-public sealed class SpineCanvasRenderer
+public sealed class SpineCanvasRenderer : IDisposable
 {
     private readonly SkeletonClipping _clipper = new();
 
@@ -197,7 +197,9 @@ public sealed class SpineCanvasRenderer
 
     private void EnsureVerts(int n)
     {
-        if (_verts.Length < n) _verts = new float[n * 2];
+        // 调用方传的就是「需要的 float 个数」，直接按它分配。
+        // 原来写 n*2 会多要一倍内存（首次调用时浪费，之后一直占着）。
+        if (_verts.Length < n) _verts = new float[n];
     }
 
     public void Dispose()

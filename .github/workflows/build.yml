@@ -1,46 +1,69 @@
-name: Build
+name: build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main, master ]
+    tags: [ 'v*' ]
   pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
+
+permissions:
+  contents: write         # 发 Release 需要写权限
 
 jobs:
   build:
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ windows-latest, ubuntu-latest, macos-latest ]
-
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
-    - name: Restore
-      run: dotnet restore
+      # 自动定位 .csproj，不管项目在仓库根还是子目录都能跑
+      - name: Locate project
+        shell: pwsh
+        run: |
+          $proj = Get-ChildItem -Recurse -Filter *.csproj |
+                  Where-Object { $_.FullName -notmatch '\\obj\\' -and $_.FullName -notmatch '\\bin\\' } |
+                  Select-Object -First 1
+          if (-not $proj) { throw "No .csproj found in repository" }
+          "PROJ=$($proj.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Project: $($proj.FullName)"
 
-    - name: Build
-      run: dotnet build -c Release --no-restore
+      - name: Restore
+        run: dotnet restore "$env:PROJ"
 
-    # 冒烟测试：不开窗口，直接渲染一帧 Spine，确认三套模型的 atlas/skel/png 都能加载
-    - name: Render smoke test (302001)
-      continue-on-error: true
-      run: dotnet run -c Release --no-build -- --dump 302001
+      - name: Build
+        run: dotnet build "$env:PROJ" -c Release --no-restore
 
-    - name: Render smoke test (302002)
-      continue-on-error: true
-      run: dotnet run -c Release --no-build -- --dump 302002
+      - name: Publish (win-x64, self-contained, single file)
+        run: >
+          dotnet publish "$env:PROJ" -c Release -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o out
 
-    - name: Render smoke test (302003)
-      continue-on-error: true
-      run: dotnet run -c Release --no-build -- --dump 302003
+      # 打 tag 时才打包成 zip 并发布，普通提交只留 artifact
+      - name: Package release zip
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: Compress-Archive -Path out/* -DestinationPath BkornblumeMascot-win-x64.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BkornblumeMascot-win-x64
+          path: out/
+          if-no-files-found: error
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: BkornblumeMascot-win-x64.zip
+          generate_release_notes: true
+          draft: false

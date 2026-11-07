@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using BkornblumeMascot.Rendering;
 
 namespace BkornblumeMascot.Services;
 
@@ -18,7 +19,11 @@ public sealed class TrayService : IDisposable
         Action onToggleWindow,
         Action onQuit,
         IReadOnlyList<string> actionNames,
-        Action<string> onPlayAction)
+        Action<string> onPlayAction,
+        IReadOnlyList<SkinEntry> skins,
+        string currentSkinId,
+        Action<string> onSwitchSkin,
+        Action onResetPosition)
     {
         _tray = new TrayIcon
         {
@@ -32,14 +37,45 @@ public sealed class TrayService : IDisposable
         miShow.Command = new RelayCommand(onToggleWindow);
         menu.Add(miShow);
 
-        // 快速动作子菜单
+        // 皮肤子菜单：换皮肤不该只能进设置面板翻页签
+        if (skins.Count > 0)
+        {
+            var miSkin = new NativeMenuItem("皮肤");
+            var sub = new NativeMenu();
+            foreach (var s in skins)
+            {
+                var it = new NativeMenuItem(s.IsUsable ? s.DisplayName : s.DisplayName + "（资源缺失）")
+                {
+                    ToggleType = NativeMenuItemToggleType.Radio,
+                    IsChecked = string.Equals(s.Id, currentSkinId, StringComparison.OrdinalIgnoreCase),
+                };
+                if (!s.IsUsable)
+                {
+                    // 缺资源的皮肤点了也加载不了，直接置灰
+                    it.IsEnabled = false;
+                }
+                else
+                {
+                    string captured = s.Id;
+                    it.Command = new RelayCommand(() => onSwitchSkin(captured));
+                }
+                sub.Add(it);
+            }
+            miSkin.Menu = sub;
+            menu.Add(miSkin);
+        }
+
+        // 快速动作子菜单（显示中文名，附带原始动画名方便对照排查）
         if (actionNames.Count > 0)
         {
             var miActions = new NativeMenuItem("播放动作");
             var sub = new NativeMenu();
             foreach (var name in actionNames)
             {
-                var it = new NativeMenuItem(name);
+                string friendly = SkeletonModel.FriendlyName(name);
+                string label = friendly == name ? name : $"{friendly}（{name}）";
+
+                var it = new NativeMenuItem(label);
                 string captured = name;
                 it.Command = new RelayCommand(() => onPlayAction(captured));
                 sub.Add(it);
@@ -49,6 +85,12 @@ public sealed class TrayService : IDisposable
         }
 
         menu.Add(new NativeMenuItemSeparator());
+
+        // 窗口允许拖到屏幕外，所以这是唯一始终点得到的自救入口：
+        // 托盘图标固定在任务栏，不受窗口位置影响。
+        var miReset = new NativeMenuItem("重置位置（拉回主屏右下角）");
+        miReset.Command = new RelayCommand(onResetPosition);
+        menu.Add(miReset);
 
         var miSettings = new NativeMenuItem("设置…");
         miSettings.Command = new RelayCommand(onOpenSettings);

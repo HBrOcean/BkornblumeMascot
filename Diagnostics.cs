@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using SkiaSharp;
 using BkornblumeMascot.Rendering;
 using Spine;
@@ -11,17 +9,39 @@ namespace BkornblumeMascot;
 /// <summary>诊断：绕开 Avalonia，直接渲染一帧到 /tmp/dump.png，并打印附件信息。</summary>
 public static class Diagnostics
 {
-    public static void Dump(string skinId = "302001")
+    public static void Dump(string? skinId = null)
     {
-        string dir = Path.Combine(AppContext.BaseDirectory, "Assets", "characters", skinId);
+        // 不写死皮肤 id：默认取第一套扫描到的可用皮肤，也可以 --dump 302003 指定
+        string? dir;
+        string id;
+        if (!string.IsNullOrWhiteSpace(skinId))
+        {
+            id = skinId.Trim();
+            dir = BkornblumeMascot.Services.SkinCatalog.DirOf(id);
+        }
+        else
+        {
+            var first = BkornblumeMascot.Services.SkinCatalog.All.FirstOrDefault(e => e.IsUsable);
+            id = first?.Id ?? "";
+            dir = first?.Dir;
+        }
+
+        if (dir == null || string.IsNullOrEmpty(id))
+        {
+            Console.WriteLine("[Dump] 没有可用的皮肤，先确认 Assets/characters 下有 .atlas/.skel");
+            return;
+        }
         Console.WriteLine("[Dump] atlas 目录: " + dir);
         var model = new SkeletonModel(
-            Path.Combine(dir, skinId + ".atlas"),
-            Path.Combine(dir, skinId + ".skel"));
+            Path.Combine(dir, id + ".atlas"),
+            Path.Combine(dir, id + ".skel"));
 
         Console.WriteLine("[Dump] 动画: " + string.Join(", ", model.AnimationNames));
+        Console.WriteLine("[Dump] 菜单动画（归并变体后）: " + string.Join(", ",
+            model.PrimaryAnimations.Select(a => $"{SkeletonModel.FriendlyName(a)}({a})")));
         var b = model.Bounds;
         Console.WriteLine($"[Dump] Bounds: {b.MinX:F1},{b.MinY:F1} .. {b.MaxX:F1},{b.MaxY:F1}");
+        Console.WriteLine($"[Dump] 锚点: X={model.AnchorX:F1} Y={model.AnchorY:F1}");
 
         model.Update(0f);
 
@@ -77,7 +97,7 @@ public static class Diagnostics
         using var img = surface.Snapshot();
         using var data = img.Encode(SKEncodedImageFormat.Png, 100);
         // 用系统临时目录（Windows 没有 /tmp）
-        string outPath = Path.Combine(Path.GetTempPath(), $"BkornblumeMascot-dump-{skinId}.png");
+        string outPath = Path.Combine(Path.GetTempPath(), $"BkornblumeMascot-dump-{id}.png");
         File.WriteAllBytes(outPath, data.ToArray());
         Console.WriteLine("[Dump] 已保存 " + outPath);
     }
